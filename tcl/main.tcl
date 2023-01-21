@@ -182,6 +182,11 @@ proc updateStatusBar {} {
             set ::gamePlayers(clockW) $::gamePlayers(clockB)
             set ::gamePlayers(clockB) $temp_swap
         }
+        set fn_format_clock {{clk} {
+            return "[string trimleft [string range $clk 0 end-4] {0:}][string range $clk end-3 end]"
+        }}
+        set ::gamePlayers(clockW) [apply $fn_format_clock $::gamePlayers(clockW)]
+        set ::gamePlayers(clockB) [apply $fn_format_clock $::gamePlayers(clockB)]
     }
 
     if {[info exists ::guessedAddMove]} {
