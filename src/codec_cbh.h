@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026  Roland Lötscher.
+ * Copyright (C) 2026 Roland Lötscher.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,8 @@
 
 #pragma once
 
-#include "cbgparse.h"
+#include "cbh_decode_game.h"
+#include "cbh_decode_player.h"
 #include "codec_proxy.h"
 #include "filebuf.h"
 #include <algorithm>
@@ -42,22 +43,18 @@ for a reference on the Chessbase .cbh database format
 
 // This class manages databases encoded in Chessbase's cbh format.
 class CodecCBH final : public CodecProxy<CodecCBH> {
-	FilebufAppend gfile_; // game data
-	FilebufAppend pfile_; // player data
-	Filebuf idxfile_;     // header file
+	Filebuf idxfile_; // header file
 
 	std::vector<std::string> filenames_;
 
 	size_t n_games_ = 0;
 	size_t n_parsed_ = 0;
-	size_t player_header_size_ = 0;
 
-	CbgParser game_parser_;
+	std::unique_ptr<CbhDecoder> player_decoder;
+	std::unique_ptr<CbhDecoder> game_decoder;
 
 	static constexpr auto INDEX_HEADER_SIZE = 46;
 	static constexpr auto INDEX_ENTRY_SIZE = 46;
-	static constexpr auto PLAYER_HEADER_FIXED_SIZE = 28; // without extra
-	static constexpr auto PLAYER_ENTRY_SIZE = 67;
 
 public:
 	Codec getType() const final { return ICodecDatabase::CBH; }
@@ -70,8 +67,8 @@ public:
 	 */
 	errorT flush() final {
 
-		errorT errGfile = (gfile_.pubsync() == 0) ? OK : ERROR_FileWrite;
-		errorT errPfile = (pfile_.pubsync() == 0) ? OK : ERROR_FileWrite;
+		errorT errGfile = game_decoder->flush();
+		errorT errPfile = player_decoder->flush();
 		errorT errIndex = (idxfile_.pubsync() == 0) ? OK : ERROR_FileWrite;
 		errorT errProxy = CodecProxy<CodecCBH>::flush();
 		return errIndex   ? errIndex
@@ -103,6 +100,11 @@ public:
 		filenames_[1].assign(dbname).append(".cbp"); // player data
 		filenames_[2].assign(dbname).append(".cbg"); // game data
 
+		player_decoder = std::make_unique<CbhPlayerDecoder>(
+		    filenames_[1].c_str(), fmode);
+		game_decoder = std::make_unique<CbhGameDecoder>(filenames_[2].c_str(),
+		                                                fmode);
+
 		if (fmode == FMODE_Create) {
 			for (auto const& fname : filenames_) {
 				std::error_code ec;
@@ -113,20 +115,18 @@ public:
 			if (auto err = idxfile_.Open(filenames_[0].c_str(), fmode))
 				return err;
 
-			if (auto err = pfile_.open(filenames_[1], fmode))
+			if (auto err = player_decoder->open())
 				return err;
 
-			if (auto err = gfile_.open(filenames_[2], fmode))
+			if (auto err = game_decoder->open())
 				return err;
 
 			return OK;
 		}
 
 		auto err_idx = read_index_header(fmode, filenames_[0].c_str());
-		auto err_pl = read_player_header(fmode, filenames_[1].c_str());
-		auto err_gm = read_game_header(fmode, filenames_[2].c_str());
-
-		game_parser_ = CbgParser(&gfile_);
+		auto err_pl = player_decoder->decode_header();
+		auto err_gm = game_decoder->decode_header();
 
 		return err_idx ? err_idx : err_pl ? err_pl : err_gm;
 	}
@@ -171,39 +171,21 @@ public:
 		                 : res == 0 ? RESULT_Black
 		                            : RESULT_None;
 
-		pfile_.pubseekpos(player_header_size_ +
-		                  white_player * PLAYER_ENTRY_SIZE +
-		                  9); // move to offset 9
-		char white_last_name[31] = {0};
-		char white_first_name[21] = {0};
-		pfile_.sgetn(white_last_name, 30);
-		pfile_.sgetn(white_first_name, 20);
-		std::string white_string = std::string(white_last_name) + ", " +
-		                           std::string(white_first_name);
-
-		pfile_.pubseekpos(player_header_size_ +
-		                  black_player * PLAYER_ENTRY_SIZE +
-		                  9); // move to offset 9
-		char black_last_name[31] = {0};
-		char black_first_name[21] = {0};
-		pfile_.sgetn(black_last_name, 30);
-		pfile_.sgetn(black_first_name, 20);
-		std::string black_string = std::string(black_last_name) + ", " +
-		                           std::string(black_first_name);
-
 		game.Clear();
-		game.SetWhiteStr(white_string.c_str());
-		game.SetBlackStr(black_string.c_str());
 		game.SetDate(DATE_MAKE(year, month, day));
 		game.SetWhiteElo(white_rating & 0xFFF);
 		game.SetBlackElo(black_rating & 0xFFF);
 		game.SetRoundStr(round_string.c_str());
 		game.SetResult(result);
-		errorT err_game = game_parser_.parseNext(game, game_offset);
+
+		errorT err_player = player_decoder->decode_record(
+		    game, std::vector<uint32_t>{white_player, black_player});
+		errorT err_game = game_decoder->decode_record(
+		    game, std::vector<uint32_t>{game_offset});
 
 		n_parsed_ += 1;
 
-		return err_game;
+		return err_player ? err_player : err_game;
 	}
 
 	/**
@@ -249,27 +231,6 @@ private:
 		const std::streamsize remaining = INDEX_HEADER_SIZE - 6;
 		char dummy[remaining];
 		idxfile_.sgetn(dummy, remaining);
-
-		return OK;
-	}
-
-	errorT read_player_header(fileModeT fmode, const char* fname) {
-		if (auto err = pfile_.open(fname, fmode))
-			return err;
-
-		pfile_.pubseekpos(PLAYER_HEADER_FIXED_SIZE - 4);
-
-		char extra[1];
-		pfile_.sgetn(extra, 1);
-		player_header_size_ = PLAYER_HEADER_FIXED_SIZE +
-		                      static_cast<byte>(extra[0]);
-
-		return OK;
-	}
-
-	errorT read_game_header(fileModeT fmode, const char* fname) {
-		if (auto err = gfile_.open(fname, fmode))
-			return err;
 
 		return OK;
 	}
