@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include "cbgparse.h"
 #include "codec_proxy.h"
 #include "filebuf.h"
 #include <algorithm>
@@ -41,6 +42,7 @@ for a reference on the Chessbase .cbh database format
 
 // This class manages databases encoded in Chessbase's cbh format.
 class CodecCBH final : public CodecProxy<CodecCBH> {
+	FilebufAppend gfile_; // game data
 	FilebufAppend pfile_; // player data
 	Filebuf idxfile_;     // header file
 
@@ -49,6 +51,8 @@ class CodecCBH final : public CodecProxy<CodecCBH> {
 	size_t n_games_ = 0;
 	size_t n_parsed_ = 0;
 	size_t player_header_size_ = 0;
+
+	CbgParser game_parser_;
 
 	static constexpr auto INDEX_HEADER_SIZE = 46;
 	static constexpr auto INDEX_ENTRY_SIZE = 46;
@@ -66,10 +70,14 @@ public:
 	 */
 	errorT flush() final {
 
+		errorT errGfile = (gfile_.pubsync() == 0) ? OK : ERROR_FileWrite;
 		errorT errPfile = (pfile_.pubsync() == 0) ? OK : ERROR_FileWrite;
 		errorT errIndex = (idxfile_.pubsync() == 0) ? OK : ERROR_FileWrite;
 		errorT errProxy = CodecProxy<CodecCBH>::flush();
-		return errIndex ? errIndex : errPfile ? errPfile : errProxy;
+		return errIndex   ? errIndex
+		       : errGfile ? errGfile
+		       : errPfile ? errPfile
+		                  : errProxy;
 	}
 
 	/**
@@ -90,9 +98,10 @@ public:
 		if (dbname.empty())
 			return ERROR_FileOpen;
 
-		filenames_.resize(2);
+		filenames_.resize(3);
 		filenames_[0].assign(dbname).append(".cbh"); // header
 		filenames_[1].assign(dbname).append(".cbp"); // player data
+		filenames_[2].assign(dbname).append(".cbg"); // game data
 
 		if (fmode == FMODE_Create) {
 			for (auto const& fname : filenames_) {
@@ -107,13 +116,19 @@ public:
 			if (auto err = pfile_.open(filenames_[1], fmode))
 				return err;
 
+			if (auto err = gfile_.open(filenames_[2], fmode))
+				return err;
+
 			return OK;
 		}
 
 		auto err_idx = read_index_header(fmode, filenames_[0].c_str());
 		auto err_pl = read_player_header(fmode, filenames_[1].c_str());
+		auto err_gm = read_game_header(fmode, filenames_[2].c_str());
 
-		return err_idx ? err_idx : err_pl;
+		game_parser_ = CbgParser(&gfile_);
+
+		return err_idx ? err_idx : err_pl ? err_pl : err_gm;
 	}
 
 	/**
@@ -184,10 +199,11 @@ public:
 		game.SetBlackElo(black_rating & 0xFFF);
 		game.SetRoundStr(round_string.c_str());
 		game.SetResult(result);
+		errorT err_game = game_parser_.parseNext(game, game_offset);
 
 		n_parsed_ += 1;
 
-		return OK;
+		return err_game;
 	}
 
 	/**
@@ -245,7 +261,15 @@ private:
 
 		char extra[1];
 		pfile_.sgetn(extra, 1);
-		player_header_size_ = static_cast<byte>(extra[0]);
+		player_header_size_ = PLAYER_HEADER_FIXED_SIZE +
+		                      static_cast<byte>(extra[0]);
+
+		return OK;
+	}
+
+	errorT read_game_header(fileModeT fmode, const char* fname) {
+		if (auto err = gfile_.open(fname, fmode))
+			return err;
 
 		return OK;
 	}
