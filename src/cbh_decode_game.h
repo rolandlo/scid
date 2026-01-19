@@ -82,11 +82,10 @@ public:
 	}
 
 	errorT decode_record(Game& game, std::vector<uint32_t> offsets) override {
-		printf("Decode game with offset %d\n", offsets[0]);
 		stream_.pubseekpos(offsets[0] + 4);
 		startDecoding();
-
-		return decodeMoves(game);
+		decodeMoves(game);
+		return OK;
 	}
 
 private:
@@ -97,12 +96,12 @@ private:
 	errorT startDecoding() {
 		// Read bit 30
 		// Set start position if that bit is set or initial position
+		printf("Start decoding\n");
 		position_.setup();
 		return OK;
 	}
 
-	errorT decodeMoves(Game& game) {
-		uint32_t move_number = 0;
+	uint32_t decodeMoves(Game& game, uint32_t move_number = 0) {
 		simpleMoveT sm;
 
 		while (true) {
@@ -113,31 +112,34 @@ private:
 			byte pos = byte(b - move_number);
 			byte move_code = MoveNumberLookup[pos];
 
-			switch (decodeMove(sm, move_code)) {
+			switch (decodeMove(sm, move_code, move_number)) {
 			case Token_Move:
-				char san[8];
-				game.GetCurrentPos()->MakeSANString(&sm, san, SAN_NO_CHECKTEST);
 				game.AddMove(sm);
-				printf("Move: %s\n", san);
 				move_number++;
 				break;
-			case Token_Push:
+			case Token_Push: {
 				printf("Variation start\n");
-				game.AddVariation();
-				return decodeMoves(game);
-			case Token_Pop:
-				printf("Variation end\n");
-				game.MoveExitVariation();
+				auto location = game.currentLocation();
+				move_number = decodeMoves(game, move_number);
+				game.restoreLocation(location);
 				game.MoveForward();
-				return OK;
+				game.AddVariation();
+				break;
+			}
+			case Token_Pop:
+				printf("\nFEN at variation end: \n");
+				char str[1024];
+				game.GetCurrentPos()->PrintFEN(str);
+				printf("%s\n", str);
+				return move_number;
 			case Token_Skip:
 				break;
 			}
 		}
-		return OK;
+		return move_number;
 	}
 
-	uint32_t decodeMove(simpleMoveT& sm, byte move_code) {
+	uint32_t decodeMove(simpleMoveT& sm, byte move_code, uint32_t move_number) {
 		switch (move_code) {
 #define OFFSET(x, y) ((x) + (y) * 8)
 
@@ -892,7 +894,18 @@ private:
 
 		// Multiple byte move ##################
 		case 0xeb: {
-			sm = simpleMoveT(); // ignore for now
+			char c[2];
+			stream_.sgetn(c, 2);
+			byte b1 = static_cast<byte>(c[0]);
+			byte b2 = static_cast<byte>(c[1]);
+			uint32_t word = MoveNumberLookup[byte(b1 - move_number)] << 8;
+			word |= MoveNumberLookup[byte(b2 - move_number)];
+			byte from = word & 63;
+			byte to = (word >> 6) & 63;
+			from = square_Make(from >> 3, from & 7);
+			to = square_Make(to >> 3, to & 7);
+
+			sm = position_.doMove(from, to, ((word >> 12) & 3) + QUEEN);
 		} break;
 
 		// Padding #############################

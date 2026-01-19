@@ -63,6 +63,7 @@ public:
 			char first_name[21] = {0};
 			stream_.sgetn(last_name, 30);
 			stream_.sgetn(first_name, 20);
+			printf("%s, %s\n", last_name, first_name);
 			return std::string(last_name) + ", " + std::string(first_name);
 		};
 

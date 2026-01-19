@@ -143,6 +143,31 @@ simpleMoveT PositionStack::doMove(byte from, byte to, byte promoted) {
 	Position& pos = stack_.top().pos;
 	simpleMoveT sm;
 	pos.makeMove(from, to, promoted, sm);
+
+	if (sm.promote != EMPTY) { // handle promotion
+		Lookup& lookup = stack_.top();
+		Pieces& pieces = lookup.pieces;
+		Count& pieceCount = lookup.pieceCount;
+		Position& pos = lookup.pos;
+		byte capturedPiece = pos.GetPiece(to);
+		unsigned number = 0;
+
+		colorT sideToMove = stack_.top().pos.GetToMove();
+		promoted = piece_Make(sideToMove, promoted);
+
+		while (pieces[number][promoted] != NULL_SQUARE) {
+			if (++number == 10)
+				return simpleMoveT(); // fix
+		}
+
+		handleCapture(pieces, pieceCount, to, capturedPiece);
+		pieces[number][promoted] = to;
+		pieceCount[to] = number;
+	}
+
+	char san[8];
+	pos.MakeSANString(&sm, san, SAN_NO_CHECKTEST);
+	printf("%s ", san);
 	pos.DoSimpleMove(sm);
 	return sm;
 }

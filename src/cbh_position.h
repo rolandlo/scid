@@ -14,7 +14,10 @@ public:
 	void setup();
 	// void setup(util::BitStream& strm);
 
-	inline void push() { stack_.push(stack_.top()); }
+	inline void push() {
+		Lookup lookup = stack_.top();
+		stack_.push(lookup);
+	}
 	inline void pop() { stack_.pop(); }
 
 	// Board const& board() const;
