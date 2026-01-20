@@ -12,7 +12,7 @@ public:
 	unsigned variationLevel() const;
 
 	void setup();
-	// void setup(util::BitStream& strm);
+	void setup(const byte* str);
 
 	inline void push() {
 		Lookup lookup = stack_.top();
@@ -20,7 +20,7 @@ public:
 	}
 	inline void pop() { stack_.pop(); }
 
-	// Board const& board() const;
+	Position const& pos() const;
 
 	simpleMoveT doNullMove();
 	simpleMoveT doCastling(byte offs);

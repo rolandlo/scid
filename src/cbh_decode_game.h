@@ -82,8 +82,8 @@ public:
 	}
 
 	errorT decode_record(Game& game, std::vector<uint32_t> offsets) override {
-		stream_.pubseekpos(offsets[0] + 4);
-		startDecoding();
+		stream_.pubseekpos(offsets[0]);
+		startDecoding(game);
 		decodeMoves(game);
 		return OK;
 	}
@@ -93,11 +93,21 @@ private:
 
 	decoder::PositionStack position_;
 
-	errorT startDecoding() {
-		// Read bit 30
-		// Set start position if that bit is set or initial position
-		printf("Start decoding\n");
-		position_.setup();
+	errorT startDecoding(Game& game) {
+		char c[4];
+		stream_.sgetn(c, 4);
+		// Read bit 30 and set start position if that bit is set
+		bool start_pos = c[0] & 0x40;
+		const int size = 28; // should be 36 for Chess960
+		if (start_pos) {
+			char pos[size];
+			stream_.sgetn(pos, size);
+			position_.setup(reinterpret_cast<byte*>(pos));
+			Position position = position_.pos();
+			game.SetStartPos(position);
+		} else {
+			position_.setup();
+		}
 		return OK;
 	}
 
@@ -118,7 +128,7 @@ private:
 				move_number++;
 				break;
 			case Token_Push: {
-				printf("Variation start\n");
+				// printf("Variation start\n");
 				auto location = game.currentLocation();
 				move_number = decodeMoves(game, move_number);
 				game.restoreLocation(location);
@@ -127,10 +137,12 @@ private:
 				break;
 			}
 			case Token_Pop:
-				printf("\nFEN at variation end: \n");
-				char str[1024];
-				game.GetCurrentPos()->PrintFEN(str);
-				printf("%s\n", str);
+				/*
+				 * printf("\nFEN at variation end: \n");
+				 *  char str[1024];
+				 *  game.GetCurrentPos()->PrintFEN(str);
+				 * printf("%s\n", str);
+				 */
 				return move_number;
 			case Token_Skip:
 				break;

@@ -292,15 +292,15 @@ public:
 
     // Set up a random position:
     errorT      Random (const char * material);
+	void setCastling(colorT col, squareT rsq);
 
 private:
-    void setCastling(colorT col, squareT rsq);
-    void ClearCastling(colorT col, castleDirT dir) {
-        Castling &= ~(1u << castlingIdx(col, dir));
-    }
-    void ClearCastlingFlags(colorT c) {
-        Castling &= (c == WHITE) ? 0b11111100 : 0b11110011;
-    }
+	void ClearCastling(colorT col, castleDirT dir) {
+		Castling &= ~(1u << castlingIdx(col, dir));
+	}
+	void ClearCastlingFlags(colorT c) {
+		Castling &= (c == WHITE) ? 0b11111100 : 0b11110011;
+	}
 };
 
 #endif  // SCID_POSITION_H

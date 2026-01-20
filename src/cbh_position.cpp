@@ -13,6 +13,99 @@ void PositionStack::reset() {
 
 unsigned PositionStack::variationLevel() const { return stack_.size() - 1; }
 
+void PositionStack::setup(const byte* str) {
+	byte l = 0;
+	auto readbit = [&]() {
+		bool bit = str[l / 8] & (1 << (7 - l % 8));
+		// printf("Bit %d: %d\n", l, bit ? 1 : 0);
+		l++;
+		return bit ? 0x1 : 0x0;
+	};
+	auto read4bit = [&]() {
+		return readbit() << 3 | readbit() << 2 | readbit() << 1 | readbit();
+	};
+	auto read8bit = [&]() { return read4bit() << 4 | read4bit(); };
+
+	reset();
+
+	Lookup& lookup = stack_.top();
+	Position& pos = lookup.pos;
+	Pieces& pieces = lookup.pieces;
+	Count& pieceCount = lookup.pieceCount;
+
+	pos.Clear();
+	l += 11;
+
+	colorT sideToMove = readbit();
+	pos.SetToMove(sideToMove);
+
+	byte epFyle = read4bit();
+
+	l += 4;
+
+	bool bshrt = readbit();
+	bool blong = readbit();
+	bool wshrt = readbit();
+	bool wlong = readbit();
+
+	pos.SetPlyCounter(std::max(1u, (unsigned int)(read8bit() - 1) * 2) +
+	                  sideToMove);
+
+	::memset(pieces, NULL_SQUARE, sizeof(pieces));
+	::memset(pieceCount, 0, sizeof(pieceCount));
+
+	byte countPieces[15] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+	for (unsigned i = 0; i < 64; ++i) {
+		if (readbit()) {
+			static byte const PieceMap[16] = {
+			    EMPTY, WK, WQ, WN, WB, WR, WP, EMPTY,
+			    EMPTY, BK, BQ, BN, BB, BR, BP, EMPTY,
+			};
+
+			byte piece = PieceMap[read4bit()];
+			ASSERT(piece != EMPTY);
+
+			byte& count = countPieces[piece];
+
+			ASSERT(count < 10);
+
+			byte sq = square_Make(i >> 3, i & 7);
+
+			errorT result = pos.AddPiece(piece, sq);
+			ASSERT(result == OK);
+
+			pieces[count][piece] = sq;
+			pieceCount[sq] = count++;
+		}
+	}
+
+	if (bshrt)
+		pos.setCastling(BLACK, H8);
+	if (blong)
+		pos.setCastling(BLACK, A8);
+	if (wshrt)
+		pos.setCastling(WHITE, H1);
+	if (wlong)
+		pos.setCastling(WHITE, A1);
+
+	if (epFyle)
+		pos.SetEPTarget(
+		    square_Make(A_FYLE + (epFyle - 1), sideToMove == WHITE ? 5 : 2));
+
+	// BUG: ChessBase 10 supports chess 960 very halfhearted. They do not
+	// have a decoding for the castling rooks.
+
+	// Fix illegal en passant squares
+
+	/*
+	 * printf("\nFEN from starting position: \n");
+	 * char fen[1024];
+	 * pos.PrintFEN(fen);
+	 * printf("%s\n", fen);
+	 */
+}
+
 void PositionStack::setup() {
 #define __ NULL_SQUARE
 	static Pieces const StandardPosition = {
@@ -50,6 +143,8 @@ void PositionStack::setup() {
 	::memcpy(lookup.pieces, StandardPosition, sizeof(StandardPosition));
 	::memcpy(lookup.pieceCount, PieceCountSetup, sizeof(PieceCountSetup));
 }
+
+Position const& PositionStack::pos() const { return stack_.top().pos; }
 
 simpleMoveT PositionStack::doNullMove() { return doMove(A1, A1, PAWN); }
 
@@ -123,11 +218,15 @@ simpleMoveT PositionStack::doPawnTwoForward(byte number) {
 simpleMoveT PositionStack::doCapture(byte number, byte offs) {
 	byte from, to, captured;
 	doMove(PAWN, number, offs, from, to, false, &captured);
-	if (captured != EMPTY) {
+	if (captured != EMPTY)
 		return doMove(from, to, EMPTY);
-	}
-	printf("En passant not handled yet\n");
-	return simpleMoveT();
+
+	Lookup& lookup = stack_.top();
+	squareT epSquare = from + (offs == +9 || offs == +7) ? 1 : -1;
+	pieceT capturedPiece = lookup.pos.GetPiece(to);
+
+	handleCapture(lookup.pieces, lookup.pieceCount, epSquare, capturedPiece);
+	return doMove(from, to, EMPTY);
 }
 
 simpleMoveT PositionStack::doCaptureRight(byte number) {
@@ -164,10 +263,11 @@ simpleMoveT PositionStack::doMove(byte from, byte to, byte promoted) {
 		pieces[number][promoted] = to;
 		pieceCount[to] = number;
 	}
-
-	char san[8];
-	pos.MakeSANString(&sm, san, SAN_NO_CHECKTEST);
-	printf("%s ", san);
+	/*
+	 * char san[8];
+	 * pos.MakeSANString(&sm, san, SAN_NO_CHECKTEST);
+	 * printf("%s ", san);
+	 */
 	pos.DoSimpleMove(sm);
 	return sm;
 }
