@@ -143,6 +143,13 @@ public:
 			return ERROR_NotFound;
 
 		byte flags = idxfile_.ReadOneByte();
+		bool guiding_text = (flags & 0x2);
+		if (guiding_text) { // TODO, skip for now
+			idxfile_.pubseekoff(INDEX_ENTRY_SIZE - 1, std::ios::cur, std::ios::in);
+			n_parsed_ += 1;
+			return ERROR_Decode;
+		}
+
 		uint32_t game_offset = idxfile_.ReadFourBytes();
 		uint32_t annotation_offset = idxfile_.ReadFourBytes();
 		uint white_player = idxfile_.ReadThreeBytes();
