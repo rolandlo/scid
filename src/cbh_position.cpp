@@ -1,5 +1,9 @@
 #include "cbh_position.h"
 
+static byte const PieceMap[16] = {
+    EMPTY, WK, WQ, WN, WB, WR, WP, EMPTY, EMPTY, BK, BQ, BN, BB, BR, BP, EMPTY,
+};
+
 namespace decoder {
 
 PositionStack::PositionStack() { stack_.push(Lookup()); }
@@ -56,27 +60,38 @@ void PositionStack::setup(const byte* str) {
 
 	byte countPieces[15] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-	for (unsigned i = 0; i < 64; ++i) {
-		if (readbit()) {
-			static byte const PieceMap[16] = {
-			    EMPTY, WK, WQ, WN, WB, WR, WP, EMPTY,
-			    EMPTY, BK, BQ, BN, BB, BR, BP, EMPTY,
-			};
+	byte cbpieces[64];
 
+	for (unsigned i = 0; i < 64; i++) {
+		byte sq = square_Make(i >> 3, i & 7);
+		if (readbit()) {
 			byte piece = PieceMap[read4bit()];
 			ASSERT(piece != EMPTY);
-
+			cbpieces[sq] = piece;
 			byte& count = countPieces[piece];
 
 			ASSERT(count < 10);
 
-			byte sq = square_Make(i >> 3, i & 7);
-
-			errorT result = pos.AddPiece(piece, sq);
-			ASSERT(result == OK);
-
 			pieces[count][piece] = sq;
 			pieceCount[sq] = count++;
+		} else {
+			cbpieces[sq] = EMPTY;
+		}
+	}
+
+	/*
+	 * The pieces must be added in the same order as in the FEN, since Pos and
+	 * PosList for the start position will be determined by its FEN when
+	 * decoding from memory buffer
+	 */
+	for (int row = 7; row >= 0; --row) {
+		for (int col = 0; col < 8; ++col) {
+			byte square = row * 8 + col;
+			byte piece = cbpieces[square];
+			if (piece != EMPTY) {
+				errorT result = pos.AddPiece(piece, square);
+				ASSERT(result == OK);
+			}
 		}
 	}
 
@@ -99,11 +114,11 @@ void PositionStack::setup(const byte* str) {
 	// Fix illegal en passant squares
 
 	/*
-	 * printf("\nFEN from starting position: \n");
-	 * char fen[1024];
-	 * pos.PrintFEN(fen);
-	 * printf("%s\n", fen);
-	 */
+	printf("\nFEN from starting position: \n");
+	char fen[1024];
+	pos.PrintFEN(fen);
+	printf("%s\n", fen);
+	*/
 }
 
 void PositionStack::setup() {

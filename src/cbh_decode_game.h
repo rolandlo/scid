@@ -83,7 +83,8 @@ public:
 
 	errorT decode_record(Game& game, std::vector<uint32_t> offsets) override {
 		stream_.pubseekpos(offsets[0]);
-		startDecoding(game);
+		if (auto err = startDecoding(game); err != OK)
+			return err;
 		decodeMoves(game);
 		return OK;
 	}
@@ -96,9 +97,20 @@ private:
 	errorT startDecoding(Game& game) {
 		char c[4];
 		stream_.sgetn(c, 4);
+
+		/*
+		 * There are a few games in cbh databases, which cannot be decoded like
+		 * the others. They can be identified via their start byte.
+		 */
+
+		bool cannot_decode = c[0] & 0x05;
+		if (cannot_decode)
+			return ERROR_Decode;
+
 		// Read bit 30 and set start position if that bit is set
 		bool start_pos = c[0] & 0x40;
-		const int size = 28; // should be 36 for Chess960
+		bool is_chess960 = c[0] & 0x0a;
+		const int size = is_chess960 ? 36 : 28;
 		if (start_pos) {
 			char pos[size];
 			stream_.sgetn(pos, size);
@@ -904,7 +916,7 @@ private:
 			sm = position_.doKnightMove(2, OFFSET(+2, -1));
 			break;
 
-		// Multiple byte move ##################
+			// Multiple byte move ##################
 		case 0xeb: {
 			char c[2];
 			stream_.sgetn(c, 2);
@@ -916,8 +928,13 @@ private:
 			byte to = (word >> 6) & 63;
 			from = square_Make(from >> 3, from & 7);
 			to = square_Make(to >> 3, to & 7);
+			pieceT moving_piece = piece_Type(position_.pos().GetPiece(from));
+			byte to_rank = to >> 3;
+			bool isPromotion = (moving_piece == PAWN) &&
+			                   (to_rank == 0 || to_rank == 7);
+			byte promote = isPromotion ? ((word >> 12) & 3) + QUEEN : EMPTY;
 
-			sm = position_.doMove(from, to, ((word >> 12) & 3) + QUEEN);
+			sm = position_.doMove(from, to, promote);
 		} break;
 
 		// Padding #############################
