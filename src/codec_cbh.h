@@ -145,7 +145,8 @@ public:
 		byte flags = idxfile_.ReadOneByte();
 		bool guiding_text = (flags & 0x2);
 		if (guiding_text) { // TODO, skip for now
-			idxfile_.pubseekoff(INDEX_ENTRY_SIZE - 1, std::ios::cur, std::ios::in);
+			idxfile_.pubseekoff(INDEX_ENTRY_SIZE - 1, std::ios::cur,
+			                    std::ios::in);
 			n_parsed_ += 1;
 			return ERROR_Decode;
 		}
