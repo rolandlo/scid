@@ -23,7 +23,7 @@ public:
 	Position const& pos() const;
 
 	simpleMoveT doNullMove();
-	simpleMoveT doCastling(byte offs);
+	simpleMoveT doCastling(fyleT toFyle);
 	simpleMoveT doKingMove(byte offs);
 	simpleMoveT doQueenMove(byte number, byte offs);
 	simpleMoveT doRookMove(byte number, byte offs);

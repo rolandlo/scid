@@ -251,10 +251,10 @@ private:
 			sm = position_.doKingMove(OFFSET(7, 1));
 			break;
 		case 0x09:
-			sm = position_.doCastling(byte(+2));
+			sm = position_.doCastling(G_FYLE);
 			break;
 		case 0x0a:
-			sm = position_.doCastling(byte(-2));
+			sm = position_.doCastling(C_FYLE);
 			break;
 
 		// First Queen #########################
@@ -969,7 +969,7 @@ private:
 			sm = position_.doKnightMove(2, OFFSET(+2, -1));
 			break;
 
-			// Multiple byte move ##################
+		// Multiple byte move ##################
 		case 0xeb: {
 			char c[2];
 			stream_.sgetn(c, 2);
@@ -981,13 +981,19 @@ private:
 			byte to = (word >> 6) & 63;
 			from = square_Make(from >> 3, from & 7);
 			to = square_Make(to >> 3, to & 7);
-			pieceT moving_piece = piece_Type(position_.pos().GetPiece(from));
-			byte to_rank = to >> 3;
-			bool isPromotion = (moving_piece == PAWN) &&
-			                   (to_rank == 0 || to_rank == 7);
-			byte promote = isPromotion ? ((word >> 12) & 3) + QUEEN : EMPTY;
 
-			sm = position_.doMove(from, to, promote);
+			if (from == to) { // chess960 castling
+				sm = position_.doCastling(square_Fyle(to));
+			} else {
+				pieceT moving_piece = piece_Type(
+				    position_.pos().GetPiece(from));
+				byte to_rank = to >> 3;
+				bool isPromotion = (moving_piece == PAWN) &&
+				                   (to_rank == 0 || to_rank == 7);
+				byte promote = isPromotion ? ((word >> 12) & 3) + QUEEN : EMPTY;
+
+				sm = position_.doMove(from, to, promote);
+			}
 		} break;
 
 		// Padding #############################

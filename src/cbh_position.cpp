@@ -163,27 +163,52 @@ Position const& PositionStack::pos() const { return stack_.top().pos; }
 
 simpleMoveT PositionStack::doNullMove() { return doMove(A1, A1, PAWN); }
 
-simpleMoveT PositionStack::doCastling(byte offs) {
-	byte from, to;
+simpleMoveT PositionStack::doCastling(fyleT toFyle) {
+	byte from, to, offs;
 
-	doMove(KING, 0, offs, from, to, false);
 	Lookup& lookup = stack_.top();
 	Count& pieceCount = lookup.pieceCount;
 	Pieces& pieces = lookup.pieces;
 	Position& pos = lookup.pos;
 	colorT sideToMove = pos.GetToMove();
-	bool isShortCastling = from < to; // XXX only works with KxR notation
+
+	fyleT kingFyle = square_Fyle(pos.GetKingSquare(sideToMove));
+	bool isShortCastling = toFyle == G_FYLE;
+
+	offs = byte(toFyle - kingFyle);
+	doMove(KING, 0, offs, from, to, false);
 
 	byte rank = square_Rank(to);
-	// TODO: does not work with chess 960
-	byte rookFrom = square_Make(isShortCastling ? H_FYLE : A_FYLE, rank);
-	byte rookTo = square_Make(isShortCastling ? F_FYLE : D_FYLE, rank);
-	byte rookNum = pieceCount[rookFrom];
+	// look up position of all rooks of the same color and determine which is
+	// closest to the right/left
+	pieceT rookType = piece_Make(sideToMove, ROOK);
+	squareT firstRook = pieces[0][rookType];
+	squareT secondRook = pieces[1][rookType];
+	// fix: there could be more than 2 rooks
+	byte rookFrom;
+	if (secondRook == NULL_SQUARE || square_Rank(secondRook) != rank) {
+		rookFrom = firstRook;
+	} else if (square_Rank(firstRook) != rank) {
+		rookFrom = secondRook;
+	} else if (isShortCastling) {
+		rookFrom = ((from < firstRook) &&
+		            (firstRook < secondRook || secondRook < from))
+		               ? firstRook
+		               : secondRook;
+	} else {
+		rookFrom = ((from > secondRook) &&
+		            (secondRook > firstRook || firstRook > from))
+		               ? secondRook
+		               : firstRook;
+	}
 
-	pieces[rookNum][piece_Make(sideToMove, ROOK)] = rookTo;
+	byte rookTo = square_Make(isShortCastling ? F_FYLE : D_FYLE, rank);
+	byte rookNum = (rookFrom == firstRook) ? 0 : 1;
+
+	pieces[rookNum][rookType] = rookTo;
 	pieceCount[rookTo] = rookNum;
 
-	return doMove(from, from, (offs == 2) ? KING : ROOK);
+	return doMove(from, from, isShortCastling ? KING : ROOK);
 }
 
 simpleMoveT PositionStack::doKingMove(byte offs) {
