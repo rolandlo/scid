@@ -63,6 +63,15 @@ struct simpleMoveT
 		return 0;
 	}
 
+	static simpleMoveT const empty() {
+		simpleMoveT sm;
+		sm.from = NULL_SQUARE;
+		sm.to = NULL_SQUARE;
+		return sm;
+	}
+
+	bool isEmpty() const { return from == NULL_SQUARE && to == NULL_SQUARE; }
+
 	/// Converts the move to long algebraic notation.
 	/// @return a pointer one past the last char written.
 	template <typename OutputIt> OutputIt toLongNotation(OutputIt dest) const {

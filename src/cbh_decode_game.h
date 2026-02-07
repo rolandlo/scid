@@ -126,7 +126,9 @@ public:
 		stream_.pubseekpos(offsets[0]);
 		if (auto err = startDecoding(game); err != OK)
 			return err;
-		decodeMoves(game);
+		auto res = decodeMoves(game);
+		if (res == -1)
+			printf("Game at offset %d contains illegal moves\n", offsets[0]);
 		return OK;
 	}
 
@@ -182,6 +184,10 @@ private:
 
 			switch (decodeMove(sm, move_code, move_number)) {
 			case Token_Move:
+				if (sm.isEmpty()) {
+					printf("Aborting on move number %d\n", move_number);
+					return -1;
+				}
 				game.AddMove(sm);
 				move_number++;
 				break;
@@ -189,6 +195,8 @@ private:
 				// printf("Variation start\n");
 				auto location = game.currentLocation();
 				move_number = decodeMoves(game, move_number);
+				if (move_number == -1)
+					return -1;
 				game.restoreLocation(location);
 				game.MoveForward();
 				game.AddVariation();

@@ -280,6 +280,10 @@ simpleMoveT PositionStack::doCaptureLeft(byte number) {
 
 simpleMoveT PositionStack::doMove(byte from, byte to, byte promoted) {
 	Position& pos = stack_.top().pos;
+	if (from == NULL_SQUARE || to == NULL_SQUARE) {
+		printf("Illegal move: from or to are null squares\n");
+		return simpleMoveT::empty();
+	}
 	simpleMoveT sm;
 	pos.makeMove(from, to, promoted, sm);
 
@@ -296,7 +300,7 @@ simpleMoveT PositionStack::doMove(byte from, byte to, byte promoted) {
 
 		while (pieces[number][promoted] != NULL_SQUARE) {
 			if (++number == 10)
-				return simpleMoveT(); // fix
+				return simpleMoveT::empty();
 		}
 
 		handleCapture(pieces, pieceCount, to, capturedPiece);
@@ -308,6 +312,12 @@ simpleMoveT PositionStack::doMove(byte from, byte to, byte promoted) {
 	 * pos.MakeSANString(&sm, san, SAN_NO_CHECKTEST);
 	 * printf("%s ", san);
 	 */
+
+	if (!sm.isNullMove() && !pos.IsLegalMove(sm.from, sm.to, sm.promote)) {
+		printf("Illegal move\n");
+		return simpleMoveT::empty();
+	}
+
 	pos.DoSimpleMove(sm);
 	return sm;
 }
