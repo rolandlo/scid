@@ -11,8 +11,13 @@ public:
 
 	unsigned variationLevel() const;
 
+	// Chessbase enumerates squares from a1 to a8 then b1 to b8 etc.
+	static inline squareT mapSquare(byte sq) {
+		return square_Make(sq >> 3, sq & 7);
+	}
+
 	void setup();
-	void setup(const byte* str);
+	void setup(const byte* str, bool isChess960);
 
 	inline void push() {
 		Lookup lookup = stack_.top();

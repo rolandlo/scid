@@ -163,7 +163,7 @@ private:
 			const int size = this->is_chess960 ? 36 : 28;
 			char pos[size];
 			stream_.sgetn(pos, size);
-			position_.setup(reinterpret_cast<byte*>(pos));
+			position_.setup(reinterpret_cast<byte*>(pos), this->is_chess960);
 			Position position = position_.pos();
 			game.SetStartPos(position);
 		} else {
@@ -985,10 +985,8 @@ private:
 			byte b2 = static_cast<byte>(c[1]);
 			uint32_t word = this->translate_byte(b1, move_number) << 8;
 			word |= this->translate_byte(b2, move_number);
-			byte from = word & 63;
-			byte to = (word >> 6) & 63;
-			from = square_Make(from >> 3, from & 7);
-			to = square_Make(to >> 3, to & 7);
+			byte from = decoder::PositionStack::mapSquare(word & 63);
+			byte to = decoder::PositionStack::mapSquare((word >> 6) & 63);
 
 			if (from == to) { // chess960 castling
 				sm = position_.doCastling(square_Fyle(to));

@@ -17,8 +17,8 @@ void PositionStack::reset() {
 
 unsigned PositionStack::variationLevel() const { return stack_.size() - 1; }
 
-void PositionStack::setup(const byte* str) {
-	byte l = 0;
+void PositionStack::setup(const byte* str, bool isChess960) {
+	unsigned int l = 0;
 	auto readbit = [&]() {
 		bool bit = str[l / 8] & (1 << (7 - l % 8));
 		// printf("Bit %d: %d\n", l, bit ? 1 : 0);
@@ -29,6 +29,7 @@ void PositionStack::setup(const byte* str) {
 		return readbit() << 3 | readbit() << 2 | readbit() << 1 | readbit();
 	};
 	auto read8bit = [&]() { return read4bit() << 4 | read4bit(); };
+	auto read16bit = [&]() { return read8bit() << 8 | read8bit(); };
 
 	reset();
 
@@ -63,7 +64,7 @@ void PositionStack::setup(const byte* str) {
 	byte cbpieces[64];
 
 	for (unsigned i = 0; i < 64; i++) {
-		byte sq = square_Make(i >> 3, i & 7);
+		byte sq = mapSquare(i);
 		if (readbit()) {
 			byte piece = PieceMap[read4bit()];
 			ASSERT(piece != EMPTY);
@@ -78,6 +79,8 @@ void PositionStack::setup(const byte* str) {
 			cbpieces[sq] = EMPTY;
 		}
 	}
+
+	l = 28 * 8; // set position for reading the last 8 bytes
 
 	/*
 	 * The pieces must be added in the same order as in the FEN, since Pos and
@@ -95,21 +98,36 @@ void PositionStack::setup(const byte* str) {
 		}
 	}
 
-	if (bshrt)
-		pos.setCastling(BLACK, H8);
-	if (blong)
-		pos.setCastling(BLACK, A8);
-	if (wshrt)
-		pos.setCastling(WHITE, H1);
-	if (wlong)
-		pos.setCastling(WHITE, A1);
+	if (isChess960) {
+		byte whiteKing = mapSquare(read8bit()); // for future use
+		byte blackKing = mapSquare(read8bit()); // for future use
+		byte WhiteShortCastleRook = mapSquare(read8bit());
+		byte WhiteLongCastleRook = mapSquare(read8bit());
+		byte BlackShortCastleRook = mapSquare(read8bit());
+		byte BlackLongCastleRook = mapSquare(read8bit());
+		uint16_t startPosCode = read16bit(); // for future use
+		if (bshrt)
+			pos.setCastling(BLACK, BlackShortCastleRook);
+		if (blong)
+			pos.setCastling(BLACK, BlackLongCastleRook);
+		if (wshrt)
+			pos.setCastling(WHITE, WhiteShortCastleRook);
+		if (wlong)
+			pos.setCastling(WHITE, WhiteLongCastleRook);
+	} else {
+		if (bshrt)
+			pos.setCastling(BLACK, H8);
+		if (blong)
+			pos.setCastling(BLACK, A8);
+		if (wshrt)
+			pos.setCastling(WHITE, H1);
+		if (wlong)
+			pos.setCastling(WHITE, A1);
+	}
 
 	if (epFyle)
 		pos.SetEPTarget(
 		    square_Make(A_FYLE + (epFyle - 1), sideToMove == WHITE ? 5 : 2));
-
-	// BUG: ChessBase 10 supports chess 960 very halfhearted. They do not
-	// have a decoding for the castling rooks.
 
 	// Fix illegal en passant squares
 
