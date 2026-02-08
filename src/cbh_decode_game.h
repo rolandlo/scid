@@ -999,8 +999,7 @@ private:
 				bool isPromotion = (moving_piece == PAWN) &&
 				                   (to_rank == 0 || to_rank == 7);
 				byte promote = isPromotion ? ((word >> 12) & 3) + QUEEN : EMPTY;
-
-				sm = position_.doMove(from, to, promote);
+				sm = position_.doMultibyteMove(from, to, promote);
 			}
 		} break;
 

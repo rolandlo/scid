@@ -293,15 +293,20 @@ simpleMoveT PositionStack::doMove(byte from, byte to, byte promoted) {
 		Count& pieceCount = lookup.pieceCount;
 		Position& pos = lookup.pos;
 		byte capturedPiece = pos.GetPiece(to);
-		unsigned number = 0;
+		unsigned number = 10;
 
 		colorT sideToMove = stack_.top().pos.GetToMove();
 		promoted = piece_Make(sideToMove, promoted);
 
-		while (pieces[number][promoted] != NULL_SQUARE) {
-			if (++number == 10)
-				return simpleMoveT::empty();
+		// the number of the promoted piece is the smallest free one
+		for (int i = 0; i < 10; i++) {
+			if (pieces[i][promoted] == NULL_SQUARE) {
+				number = i;
+				break;
+			}
 		}
+		if (number == 10) // shouldn't happen
+			return simpleMoveT::empty();
 
 		handleCapture(pieces, pieceCount, to, capturedPiece);
 		pieces[number][promoted] = to;
@@ -331,7 +336,7 @@ void PositionStack::handleCapture(Pieces& pieces, Count& pieceCount, byte to,
 
 	pieces[pieceNum][piece] = NULL_SQUARE;
 
-	if (piece_Type(piece) == PAWN)
+	if (piece_Type(piece) == PAWN || pieceNum > 1)
 		return;
 
 	for (unsigned i = 0; i < 10; ++i) {
@@ -340,7 +345,7 @@ void PositionStack::handleCapture(Pieces& pieces, Count& pieceCount, byte to,
 		if (square != NULL_SQUARE) {
 			byte number = pieceCount[square];
 
-			if (number > pieceNum) {
+			if (number > pieceNum && number < 3) {
 				pieces[number - 1][piece] = pieces[number][piece];
 				pieces[number][piece] = NULL_SQUARE;
 				--pieceCount[square];
@@ -376,5 +381,23 @@ void PositionStack::doMove(pieceT pieceType, byte number, byte offs, byte& from,
 	}
 	square = to;
 	pieceCount[to] = number;
+}
+
+simpleMoveT PositionStack::doMultibyteMove(byte from, byte to, byte promote) {
+	if (promote != EMPTY) {
+		return doMove(from, to, promote);
+	}
+
+	Lookup& lookup = stack_.top();
+	Pieces& pieces = lookup.pieces;
+	Count& pieceCount = lookup.pieceCount;
+	Position pos = lookup.pos;
+
+	byte number = pieceCount[from];
+	pieceT piece = pos.GetPiece(from);
+	pieces[number][piece] = to;
+	pieceCount[to] = number;
+
+	return doMove(from, to, promote);
 }
 } // namespace decoder

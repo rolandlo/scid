@@ -33,6 +33,7 @@ public:
 	simpleMoveT doPawnTwoForward(byte number);
 	simpleMoveT doCaptureRight(byte number);
 	simpleMoveT doCaptureLeft(byte number);
+	simpleMoveT doMultibyteMove(byte from, byte to, byte promote);
 	simpleMoveT doMove(byte from, byte to, byte promoted);
 
 private:
