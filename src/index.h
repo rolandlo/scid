@@ -43,6 +43,7 @@ private:
 
     friend class CodecSCID4;
     friend class CodecSCID5;
+	friend class CodecCBH;
 
 public:
     Index()  { Init(); }

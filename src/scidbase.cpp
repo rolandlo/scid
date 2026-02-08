@@ -17,6 +17,7 @@
 */
 
 #include "scidbase.h"
+#include "codec_cbh.h"
 #include "codec_memory.h"
 #include "codec_pgn.h"
 #include "codec_scid4.h"
@@ -40,6 +41,8 @@ ICodecDatabase::open(Codec codec, fileModeT fMode, const char* filename,
 			return new CodecPgn();
 		case ICodecDatabase::SCID5:
 			return new CodecSCID5();
+		case ICodecDatabase::CBH:
+			return new CodecCBH();
 		}
 		ASSERT(0);
 		return nullptr;

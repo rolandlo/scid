@@ -57,6 +57,7 @@ proc ::file::New {} {
     { "Scid5 databases" {".si5"} }
     { "PGN files" {".pgn" ".PGN"} }
     { "Scid4 databases" {".si4"} }
+    { "CBH databases" {".cbh"} }
   }
 
   set fName [tk_getSaveFile \
@@ -71,6 +72,8 @@ proc ::file::New {} {
     set dbType "SCID5"
   } elseif {$file_extension == ".si4"} {
     set dbType "SCID4"
+  } elseif {$file_extension == ".cbh"} {
+    set dbType "CBH"
   } elseif {$file_extension == ".pgn"} {
     set dbType "PGN"
   }
@@ -94,7 +97,7 @@ proc ::file::New {} {
 proc ::file::Open {{fName ""}} {
   if {$fName == ""} {
       set ftype {
-        { "All Scid files" {".si5" ".si4" ".si3" ".pgn" ".epd"} }
+        { "All Scid files" {".si5" ".si4" ".si3" ".pgn" ".cbh" ".epd"} }
         { "Scid databases" {".si5" ".si4" ".si3"} }
         { "PGN files" {".pgn" ".PGN"} }
         { "EPD files" {".epd" ".EPD"} }
@@ -181,6 +184,8 @@ proc ::file::Open_ {fName } {
       set dbType "SCID5"
     } elseif {$ext == ".si4"} {
       set dbType "SCID4"
+    } elseif {$ext == ".cbh"} {
+      set dbType "CBH"
     } else {
       tk_messageBox -title "Scid: opening file" -message "Unsupported database format:  $ext"
       return 1;
