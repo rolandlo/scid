@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include "cbh_decode_annotator.h"
 #include "cbh_decode_game.h"
 #include "cbh_decode_player.h"
 #include "cbh_decode_tournament.h"
@@ -46,6 +47,7 @@ class CodecCBH final : public CodecProxy<CodecCBH> {
 
 	std::unique_ptr<CbhDecoder> player_decoder;
 	std::unique_ptr<CbhDecoder> tournament_decoder;
+	std::unique_ptr<CbhDecoder> annotator_decoder;
 	std::unique_ptr<CbhDecoder> game_decoder;
 
 public:
