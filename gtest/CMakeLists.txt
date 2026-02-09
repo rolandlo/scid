@@ -29,6 +29,7 @@ set(SCID_BASE
   ../src/codec_scid4.cpp
   ../src/cbh_position.cpp
   ../src/cbh_decode_game.cpp
+  ../src/cbh_decode_player.cpp
   ../src/scidbase.cpp
   ../src/sortcache.cpp
   ../src/stored.cpp

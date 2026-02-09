@@ -23,53 +23,14 @@
 
 #pragma once
 #include "cbh_decode_base.h"
-#include "error.h"
-#include "filebuf.h"
 #include "game.h"
 
 class CbhPlayerDecoder final : public CbhDecoder {
 	size_t player_header_size_;
 
-	static constexpr auto PLAYER_HEADER_FIXED_SIZE = 28; // without extra
-	static constexpr auto PLAYER_ENTRY_SIZE = 67;
-
 public:
-	CbhPlayerDecoder(const char* filename, fileModeT fmode)
-	    : CbhDecoder(filename, fmode) {}
+	CbhPlayerDecoder(const char* filename, fileModeT fmode);
 
-	errorT decode_header() override {
-		if (auto err = stream_.open(filename_, fmode_))
-			return err;
-
-		stream_.pubseekpos(PLAYER_HEADER_FIXED_SIZE - 4);
-
-		char extra[1];
-		stream_.sgetn(extra, 1);
-		player_header_size_ = PLAYER_HEADER_FIXED_SIZE +
-		                      static_cast<byte>(extra[0]);
-
-		return OK;
-	}
-
-	errorT decode_record(Game& game, std::vector<uint32_t> offsets) override {
-		uint32_t white_player = offsets.at(0);
-		uint32_t black_player = offsets.at(1);
-
-		auto player_string = [&](uint32_t player_offset) {
-			stream_.pubseekpos(player_header_size_ +
-			                   player_offset * PLAYER_ENTRY_SIZE +
-			                   9); // move to offset 9
-			char last_name[31] = {0};
-			char first_name[21] = {0};
-			stream_.sgetn(last_name, 30);
-			stream_.sgetn(first_name, 20);
-			// printf("%s, %s\n", last_name, first_name);
-			return std::string(last_name) + ", " + std::string(first_name);
-		};
-
-		game.SetWhiteStr(player_string(white_player).c_str());
-		game.SetBlackStr(player_string(black_player).c_str());
-
-		return OK;
-	}
+	errorT decode_header() override;
+	errorT decode_record(Game& game, std::vector<uint32_t> offsets) override;
 };
