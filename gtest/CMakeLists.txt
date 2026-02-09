@@ -27,6 +27,7 @@ add_subdirectory(${CMAKE_BINARY_DIR}/googletest ${CMAKE_BINARY_DIR}/googletest/B
 # scid_sources
 set(SCID_BASE
   ../src/codec_scid4.cpp
+  ../src/codec_cbh.cpp
   ../src/cbh_position.cpp
   ../src/cbh_decode_game.cpp
   ../src/cbh_decode_player.cpp
