@@ -43,10 +43,12 @@ errorT CodecCBH::flush() {
 
 	errorT errGfile = game_decoder->flush();
 	errorT errPfile = player_decoder->flush();
+	errorT errTfile = tournament_decoder->flush();
 	errorT errIndex = (idxfile_.pubsync() == 0) ? OK : ERROR_FileWrite;
 	errorT errProxy = CodecProxy<CodecCBH>::flush();
 	return errIndex   ? errIndex
 	       : errGfile ? errGfile
+	       : errTfile ? errTfile
 	       : errPfile ? errPfile
 	                  : errProxy;
 }
@@ -61,14 +63,17 @@ errorT CodecCBH::open(const char* filename, fileModeT fmode) {
 	if (dbname.empty())
 		return ERROR_FileOpen;
 
-	filenames_.resize(3);
+	filenames_.resize(4);
 	filenames_[0].assign(dbname).append(".cbh"); // header
 	filenames_[1].assign(dbname).append(".cbp"); // player data
-	filenames_[2].assign(dbname).append(".cbg"); // game data
+	filenames_[2].assign(dbname).append(".cbt"); // tournament data
+	filenames_[3].assign(dbname).append(".cbg"); // game data
 
 	player_decoder = std::make_unique<CbhPlayerDecoder>(filenames_[1].c_str(),
 	                                                    fmode);
-	game_decoder = std::make_unique<CbhGameDecoder>(filenames_[2].c_str(),
+	tournament_decoder = std::make_unique<CbhTournamentDecoder>(
+	    filenames_[2].c_str(), fmode);
+	game_decoder = std::make_unique<CbhGameDecoder>(filenames_[3].c_str(),
 	                                                fmode);
 
 	if (fmode == FMODE_Create) {
@@ -84,6 +89,9 @@ errorT CodecCBH::open(const char* filename, fileModeT fmode) {
 		if (auto err = player_decoder->open())
 			return err;
 
+		if (auto err = tournament_decoder->open())
+			return err;
+
 		if (auto err = game_decoder->open())
 			return err;
 
@@ -92,9 +100,10 @@ errorT CodecCBH::open(const char* filename, fileModeT fmode) {
 
 	auto err_idx = read_index_header(fmode, filenames_[0].c_str());
 	auto err_pl = player_decoder->decode_header();
+	auto err_to = tournament_decoder->decode_header();
 	auto err_gm = game_decoder->decode_header();
 
-	return err_idx ? err_idx : err_pl ? err_pl : err_gm;
+	return err_idx ? err_idx : err_pl ? err_pl : err_to ? err_to : err_gm;
 }
 
 errorT CodecCBH::parseNext(Game& game) {
@@ -146,12 +155,14 @@ errorT CodecCBH::parseNext(Game& game) {
 
 	errorT err_player = player_decoder->decode_record(
 	    game, std::vector<uint32_t>{white_player, black_player});
+	errorT err_tournament = tournament_decoder->decode_record(
+	    game, std::vector<uint32_t>{tournament});
 	errorT err_game = game_decoder->decode_record(
 	    game, std::vector<uint32_t>{game_offset});
 
 	n_parsed_ += 1;
 
-	return err_player ? err_player : err_game;
+	return err_player ? err_player : err_tournament ? err_tournament : err_game;
 }
 
 std::pair<size_t, size_t> CodecCBH::parseProgress() {

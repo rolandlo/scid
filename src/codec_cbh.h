@@ -26,9 +26,10 @@
 
 #pragma once
 
-#include "codec.h"
 #include "cbh_decode_game.h"
 #include "cbh_decode_player.h"
+#include "cbh_decode_tournament.h"
+#include "codec.h"
 #include "codec_proxy.h"
 #include "filebuf.h"
 #include <filesystem>
@@ -44,6 +45,7 @@ class CodecCBH final : public CodecProxy<CodecCBH> {
 	size_t n_parsed_ = 0;
 
 	std::unique_ptr<CbhDecoder> player_decoder;
+	std::unique_ptr<CbhDecoder> tournament_decoder;
 	std::unique_ptr<CbhDecoder> game_decoder;
 
 public:
@@ -96,5 +98,5 @@ public:
 	errorT gameAdd(Game* game);
 
 private:
-	errorT read_index_header(fileModeT fmode, const char* fname); 
+	errorT read_index_header(fileModeT fmode, const char* fname);
 };

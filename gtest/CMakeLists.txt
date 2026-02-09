@@ -31,6 +31,7 @@ set(SCID_BASE
   ../src/cbh_position.cpp
   ../src/cbh_decode_game.cpp
   ../src/cbh_decode_player.cpp
+  ../src/cbh_decode_tournament.cpp
   ../src/scidbase.cpp
   ../src/sortcache.cpp
   ../src/stored.cpp
