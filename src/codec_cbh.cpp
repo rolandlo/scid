@@ -132,7 +132,8 @@ errorT CodecCBH::parseNext(Game& game) {
 	byte subround = idxfile_.ReadOneByte();
 	uint16_t white_rating = idxfile_.ReadTwoBytes();
 	uint16_t black_rating = idxfile_.ReadTwoBytes();
-	idxfile_.pubseekoff(INDEX_ENTRY_SIZE - 35, std::ios::cur, std::ios::in);
+	uint16_t eco = idxfile_.ReadTwoBytes();
+	idxfile_.pubseekoff(INDEX_ENTRY_SIZE - 37, std::ios::cur, std::ios::in);
 
 	uint year = (date >> 9) & 4095;
 	uint month = (date >> 5) & 15;
@@ -146,10 +147,15 @@ errorT CodecCBH::parseNext(Game& game) {
 	                 : res == 0 ? RESULT_Black
 	                            : RESULT_None;
 
+	// bits 7-15 for for eco; 0->0, 1->A00 = 132, 2-> A01 = 263,...
+	// ignore subcodes (bits 0-6)
+	ecoT scidEco = (eco >> 7) ? ((eco >> 7) - 1) * 131 + 1 : 0;
+
 	game.Clear();
 	game.SetDate(DATE_MAKE(year, month, day));
 	game.SetWhiteElo(white_rating & 0xFFF);
 	game.SetBlackElo(black_rating & 0xFFF);
+	game.SetEco(scidEco);
 	game.SetRoundStr(round_string.c_str());
 	game.SetResult(result);
 
