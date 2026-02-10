@@ -26,10 +26,16 @@
 #include "game.h"
 
 class CbhAnnotationDecoder final : public CbhDecoder {
+	bool finished_;
+	uint32_t move_number_;
+	uint32_t length_;
+	uint32_t readBytes_;
 
 public:
 	CbhAnnotationDecoder(const char* filename, fileModeT fmode);
 	void decodeSymbol(Game& game, const byte* content, int length);
 	errorT decode_header() override;
-	errorT decode_record(Game& game, std::vector<uint32_t> offsets) override;
+	errorT decode_record(Game& game, std::vector<uint32_t> offsets)
+	    override; // only starts decoding actually
+	void addAnnotations(Game& game, uint32_t move_number);
 };

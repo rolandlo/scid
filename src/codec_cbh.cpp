@@ -77,10 +77,8 @@ errorT CodecCBH::open(const char* filename, fileModeT fmode) {
 	    filenames_[2].c_str(), fmode);
 	annotator_decoder = std::make_unique<CbhAnnotatorDecoder>(
 	    filenames_[3].c_str(), fmode);
-	game_decoder = std::make_unique<CbhGameDecoder>(filenames_[4].c_str(),
-	                                                fmode);
-	annotation_decoder = std::make_unique<CbhAnnotationDecoder>(
-	    filenames_[5].c_str(), fmode);
+	game_decoder = std::make_unique<CbhGameDecoder>(
+	    filenames_[4].c_str(), filenames_[5].c_str(), fmode);
 
 	if (fmode == FMODE_Create) {
 		for (auto const& fname : filenames_) {
@@ -104,9 +102,6 @@ errorT CodecCBH::open(const char* filename, fileModeT fmode) {
 		if (auto err = game_decoder->open())
 			return err;
 
-		if (auto err = annotation_decoder->open())
-			return err;
-
 		return OK;
 	}
 
@@ -115,14 +110,12 @@ errorT CodecCBH::open(const char* filename, fileModeT fmode) {
 	auto err_to = tournament_decoder->decode_header();
 	auto err_ar = annotator_decoder->decode_header();
 	auto err_gm = game_decoder->decode_header();
-	auto err_an = annotation_decoder->decode_header();
 
 	return err_idx  ? err_idx
 	       : err_pl ? err_pl
 	       : err_to ? err_to
 	       : err_ar ? err_ar
-	       : err_gm ? err_gm
-	                : err_an;
+	                : err_gm;
 }
 
 errorT CodecCBH::parseNext(Game& game) {
@@ -185,17 +178,14 @@ errorT CodecCBH::parseNext(Game& game) {
 	errorT err_annotator = annotator_decoder->decode_record(
 	    game, std::vector<uint32_t>{annotator});
 	errorT err_game = game_decoder->decode_record(
-	    game, std::vector<uint32_t>{game_offset});
-	errorT err_annotation = annotation_decoder->decode_record(
-	    game, std::vector<uint32_t>{annotation_offset});
+	    game, std::vector<uint32_t>{game_offset, annotation_offset});
 
 	n_parsed_ += 1;
 
 	return err_player       ? err_player
 	       : err_tournament ? err_tournament
 	       : err_annotator  ? err_annotator
-	       : err_game       ? err_game
-	                        : err_annotation;
+	                        : err_game;
 }
 
 std::pair<size_t, size_t> CodecCBH::parseProgress() {

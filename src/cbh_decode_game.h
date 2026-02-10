@@ -22,6 +22,7 @@
  */
 
 #pragma once
+#include "cbh_decode_annotation.h"
 #include "cbh_decode_base.h"
 #include "cbh_position.h"
 #include "game.h"
@@ -34,7 +35,11 @@
 class CbhGameDecoder final : public CbhDecoder {
 
 public:
-	CbhGameDecoder(const char* filename, fileModeT fmode);
+	CbhGameDecoder(const char* gameFilename, const char* annotationFilename,
+	               fileModeT fmode);
+
+	errorT open() override;
+	errorT flush() override;
 
 	errorT decode_header() override; 
 	errorT decode_record(Game& game, std::vector<uint32_t> offsets) override; 
@@ -42,6 +47,7 @@ public:
 private:
 	enum { Token_Move, Token_Push, Token_Pop, Token_Skip };
 
+	CbhAnnotationDecoder annotationDecoder;
 	decoder::PositionStack position_;
 	bool is_chess960;
 	const byte* lookup;

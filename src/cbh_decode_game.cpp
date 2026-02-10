@@ -93,14 +93,29 @@ constexpr byte MoveNumberLookup960[256] = {
     0xaf, 0x5d, 0xa0, 0xbc, 0x13, 0x7f, 0xac, 0x4e, // 248 - 257
 };
 
-CbhGameDecoder::CbhGameDecoder(const char* filename, fileModeT fmode)
-    : CbhDecoder(filename, fmode) {}
+CbhGameDecoder::CbhGameDecoder(const char* gameFilename,
+                               const char* annotationFilename, fileModeT fmode)
+    : CbhDecoder(gameFilename, fmode),
+      annotationDecoder(CbhAnnotationDecoder(annotationFilename, fmode)) {}
+
+errorT CbhGameDecoder::open() {
+	if (auto err = CbhDecoder::open(); err != OK)
+		return err;
+
+	return annotationDecoder.open();
+}
+
+errorT CbhGameDecoder::flush() {
+	if (auto err = CbhDecoder::flush(); err != OK)
+		return err;
+	return annotationDecoder.flush();
+}
 
 errorT CbhGameDecoder::decode_header() {
 	if (auto err = stream_.open(filename_, fmode_))
 		return err;
 
-	return OK;
+	return annotationDecoder.decode_header();
 }
 
 errorT CbhGameDecoder::decode_record(Game& game,
@@ -108,6 +123,10 @@ errorT CbhGameDecoder::decode_record(Game& game,
 	stream_.pubseekpos(offsets[0]);
 	if (auto err = startDecoding(game); err != OK)
 		return err;
+
+	if (auto err = annotationDecoder.decode_record(game, {offsets[1]}))
+		return err;
+
 	auto res = decodeMoves(game);
 	if (res == -1)
 		printf("Game at offset %d contains illegal moves\n", offsets[0]);
@@ -163,6 +182,7 @@ uint32_t CbhGameDecoder::decodeMoves(Game& game, uint32_t move_number) {
 				return -1;
 			}
 			game.AddMove(sm);
+			annotationDecoder.addAnnotations(game, move_number);
 			move_number++;
 			break;
 		case Token_Push: {

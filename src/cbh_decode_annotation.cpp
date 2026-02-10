@@ -147,21 +147,32 @@ errorT CbhAnnotationDecoder::decode_record(Game& game,
 	// Read number of bytes for annotations in this game (4 bytes)
 	char ls[4];
 	stream_.sgetn(ls, 4);
-	uint32_t length = static_cast<byte>(ls[0]) << 24 |
-	                  static_cast<byte>(ls[1]) << 16 |
-	                  static_cast<byte>(ls[2]) << 8 | static_cast<byte>(ls[3]);
+	length_ = static_cast<byte>(ls[0]) << 24 | static_cast<byte>(ls[1]) << 16 |
+	          static_cast<byte>(ls[2]) << 8 | static_cast<byte>(ls[3]);
 
-	unsigned int readBytes = 14;
-	game.MoveToStart();
-	uint32_t ply = 0;
-	bool finished = false;
+	readBytes_ = 14;
 
-	while (readBytes < length) {
-		// Read position in game (3 bytes) big endian (mistake on talkchess?)
+	// Read position in game (3 bytes) big endian (mistake on talkchess?)
+	if (readBytes_ < length_) {
 		char ps[3];
 		stream_.sgetn(ps, 3);
-		uint32_t pos = static_cast<byte>(ps[0]) << 16 |
+		move_number_ = static_cast<byte>(ps[0]) << 16 |
 		               static_cast<byte>(ps[1]) << 8 | static_cast<byte>(ps[2]);
+		readBytes_ += 3;
+		finished_ = false;
+	} else {
+		finished_ = true;
+	}
+
+	return OK;
+}
+
+void CbhAnnotationDecoder::addAnnotations(Game& game, uint32_t move_number) {
+	if (finished_ || move_number != move_number_) {
+		return;
+	}
+
+	while (readBytes_ < length_ && move_number_ == move_number) {
 
 		// Read type of annotation (1 byte)
 		byte type = static_cast<byte>(stream_.sbumpc());
@@ -173,38 +184,10 @@ errorT CbhAnnotationDecoder::decode_record(Game& game,
 		uint16_t size =
 		    (static_cast<byte>(al[0]) << 8 | static_cast<byte>(al[1])) - 6;
 
-		bool forward = true;
-		while (ply < pos + 1) {
-			if (forward) {
-				if (!game.AtVarEnd()) {
-					game.MoveForward();
-					ply++;
-				} else {
-					forward = false;
-				}
-			} else {
-				if (game.MoveIntoVariation(0) == OK) {
-					forward = true;
-				} else {
-					if (!game.AtVarStart() || game.MoveExitVariation() == OK) {
-						while (game.MoveBackup() != OK) {
-							game.MoveExitVariation();
-						}
-					} else {
-						finished = true;
-						break;
-					}
-				}
-			}
-		}
-
-		if (finished)
-			return OK;
-
 		char content[size + 1];
 		stream_.sgetn(content, size);
 		content[size] = 0;
-		readBytes += size + 6;
+		readBytes_ += size + 3;
 
 		switch (type) {
 		case 0x02: // text after move
@@ -224,7 +207,7 @@ errorT CbhAnnotationDecoder::decode_record(Game& game,
 		}
 		case 0x03: // symbol
 		{
-			decodeSymbol(game, reinterpret_cast<byte*>(content), length);
+			decodeSymbol(game, reinterpret_cast<byte*>(content), size);
 			break;
 		}
 		case 0x04: // squares
@@ -237,7 +220,18 @@ errorT CbhAnnotationDecoder::decode_record(Game& game,
 			printf("Ignore annotation of type %d\n", type);
 			break;
 		}
-	}
 
-	return OK;
+		if (readBytes_ < length_) {
+			// Read position in game (3 bytes) big endian (mistake on
+			// talkchess?)
+			char ps[3];
+			stream_.sgetn(ps, 3);
+			move_number_ = static_cast<byte>(ps[0]) << 16 |
+			               static_cast<byte>(ps[1]) << 8 |
+			               static_cast<byte>(ps[2]);
+			readBytes_ += 3;
+		} else {
+			finished_ = true;
+		}
+	}
 }

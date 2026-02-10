@@ -37,8 +37,10 @@ public:
 	CbhDecoder(const char* filename, fileModeT fmode)
 	    : filename_(filename), fmode_(fmode) {}
 
-	errorT open() { return stream_.open(filename_, fmode_); };
-	errorT flush() { return (stream_.pubsync() == 0) ? OK : ERROR_FileWrite; }
+	virtual errorT open() { return stream_.open(filename_, fmode_); };
+	virtual errorT flush() {
+		return (stream_.pubsync() == 0) ? OK : ERROR_FileWrite;
+	}
 	virtual errorT decode_header() = 0;
 	virtual errorT decode_record(Game& game, std::vector<uint32_t> offsets) = 0;
 };
