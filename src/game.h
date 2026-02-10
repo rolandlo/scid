@@ -86,6 +86,7 @@ const byte
     NAG_TimeLimit = 136, // new
     NAG_WithIdea = 140, // new
     NAG_BetterIs = 142, // new
+    NAG_WorseIs = 143, // CBH
     NAG_VariousMoves = 144, // new
     NAG_Comment = 145, // new
     NAG_Novelty = 146,

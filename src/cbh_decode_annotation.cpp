@@ -33,6 +33,112 @@ errorT CbhAnnotationDecoder::decode_header() {
 	return OK;
 }
 
+void CbhAnnotationDecoder::decodeSymbol(Game& game, const byte* content,
+                                        int length) {
+	if (length == 0)
+		return;
+
+	colorT whiteToMove = game.currentPos()->WhiteToMove();
+#define NAG(code) whiteToMove ? NAG_##code : NAG_Black##code
+
+	switch (content[0]) {
+	case 0x01:
+		game.AddNag(NAG_GoodMove);
+		break;
+	case 0x02:
+		game.AddNag(NAG_PoorMove);
+		break;
+	case 0x03:
+		game.AddNag(NAG_ExcellentMove);
+		break;
+	case 0x04:
+		game.AddNag(NAG_Blunder);
+		break;
+	case 0x05:
+		game.AddNag(NAG_InterestingMove);
+		break;
+	case 0x06:
+		game.AddNag(NAG_DubiousMove);
+		break;
+	case 0x08:
+		game.AddNag(NAG_OnlyMove);
+		break;
+	case 0x16:
+		game.AddNag(NAG(ZugZwang));
+		break;
+	}
+
+	if (length == 1)
+		return;
+
+	switch (content[1]) {
+	case 0x0b:
+		game.AddNag(NAG_Equal);
+		break;
+	case 0x0d:
+		game.AddNag(NAG_Unclear);
+		break;
+	case 0x0e:
+		game.AddNag(NAG_WhiteSlight);
+		break;
+	case 0x0f:
+		game.AddNag(NAG_BlackSlight);
+		break;
+	case 0x10:
+		game.AddNag(NAG_WhiteClear);
+		break;
+	case 0x11:
+		game.AddNag(NAG_BlackClear);
+		break;
+	case 0x12:
+		game.AddNag(NAG_WhiteDecisive);
+		break;
+	case 0x13:
+		game.AddNag(NAG_BlackDecisive);
+		break;
+		//		case 0x20: game.AddNag(NAG(HasAModerateTimeAdvantage)); break;
+	case 0x24:
+		game.AddNag(NAG_WithInitiative);
+		break;
+	case 0x28:
+		game.AddNag(NAG_WithAttack);
+		break;
+	case 0x2c:
+		game.AddNag(NAG_Compensation);
+		break;
+	case 0x84:
+		game.AddNag(NAG(SlightCounterPlay));
+		break;
+	case 0x8a:
+		game.AddNag(NAG_TimeLimit);
+		break;
+	case 0x92:
+		game.AddNag(NAG_Novelty);
+		break;
+	}
+
+	if (length == 2)
+		return;
+
+	switch (content[2]) {
+	case 0x8C:
+		game.AddNag(NAG_WithIdea);
+		break;
+		//		case 0x8D: game.AddNag(NAG_AimedAgainst); break;
+	case 0x8E:
+		game.AddNag(NAG_BetterIs);
+		break;
+	case 0x8F:
+		game.AddNag(NAG_WorseIs);
+		break;
+		//		case 0x90: game.AddNag(NAG_EquivalentMove); break;
+	case 0x91:
+		game.AddNag(NAG_Comment);
+		break;
+	}
+#undef NAG
+}
+
 errorT CbhAnnotationDecoder::decode_record(Game& game,
                                            std::vector<uint32_t> offsets) {
 	uint32_t annotation_offset = offsets.at(0);
@@ -118,13 +224,15 @@ errorT CbhAnnotationDecoder::decode_record(Game& game,
 		}
 		case 0x03: // symbol
 		{
-			byte symb = static_cast<byte>(content[0]);
-			byte moveEval = static_cast<byte>(content[1]);
-			byte prefix = static_cast<byte>(content[2]);
-			printf("Symbol: %d, eval: %d, prefix: %d\n", symb, moveEval,
-			       prefix);
+			decodeSymbol(game, reinterpret_cast<byte*>(content), length);
 			break;
 		}
+		case 0x04: // squares
+			printf("Ignore squares annotation\n");
+			break;
+		case 0x05: // arrows
+			printf("Ignore arrows annotation\n");
+			break;
 		default:
 			printf("Ignore annotation of type %d\n", type);
 			break;

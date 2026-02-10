@@ -29,7 +29,7 @@ class CbhAnnotationDecoder final : public CbhDecoder {
 
 public:
 	CbhAnnotationDecoder(const char* filename, fileModeT fmode);
-
+	void decodeSymbol(Game& game, const byte* content, int length);
 	errorT decode_header() override;
 	errorT decode_record(Game& game, std::vector<uint32_t> offsets) override;
 };
