@@ -34,6 +34,7 @@ set(SCID_BASE
   ../src/cbh_decode_tournament.cpp
   ../src/cbh_decode_annotator.cpp
   ../src/cbh_decode_annotation.cpp
+  ../src/cbh_decode_source.cpp
   ../src/scidbase.cpp
   ../src/sortcache.cpp
   ../src/stored.cpp

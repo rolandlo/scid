@@ -44,12 +44,16 @@ errorT CodecCBH::flush() {
 	errorT errGfile = game_decoder->flush();
 	errorT errPfile = player_decoder->flush();
 	errorT errTfile = tournament_decoder->flush();
+	errorT errCfile = annotator_decoder->flush();
+	errorT errSfile = source_decoder->flush();
 	errorT errIndex = (idxfile_.pubsync() == 0) ? OK : ERROR_FileWrite;
 	errorT errProxy = CodecProxy<CodecCBH>::flush();
 	return errIndex   ? errIndex
 	       : errGfile ? errGfile
 	       : errTfile ? errTfile
 	       : errPfile ? errPfile
+	       : errCfile ? errCfile
+	       : errSfile ? errSfile
 	                  : errProxy;
 }
 
@@ -63,13 +67,14 @@ errorT CodecCBH::open(const char* filename, fileModeT fmode) {
 	if (dbname.empty())
 		return ERROR_FileOpen;
 
-	filenames_.resize(6);
+	filenames_.resize(7);
 	filenames_[0].assign(dbname).append(".cbh"); // header
 	filenames_[1].assign(dbname).append(".cbp"); // player data
 	filenames_[2].assign(dbname).append(".cbt"); // tournament data
 	filenames_[3].assign(dbname).append(".cbc"); // annotator data
-	filenames_[4].assign(dbname).append(".cbg"); // game data
-	filenames_[5].assign(dbname).append(".cba"); // annotation data
+	filenames_[4].assign(dbname).append(".cbs"); // source data
+	filenames_[5].assign(dbname).append(".cbg"); // game data
+	filenames_[6].assign(dbname).append(".cba"); // annotation data
 
 	player_decoder = std::make_unique<CbhPlayerDecoder>(filenames_[1].c_str(),
 	                                                    fmode);
@@ -77,8 +82,10 @@ errorT CodecCBH::open(const char* filename, fileModeT fmode) {
 	    filenames_[2].c_str(), fmode);
 	annotator_decoder = std::make_unique<CbhAnnotatorDecoder>(
 	    filenames_[3].c_str(), fmode);
+	source_decoder = std::make_unique<CbhSourceDecoder>(filenames_[4].c_str(),
+	                                                    fmode);
 	game_decoder = std::make_unique<CbhGameDecoder>(
-	    filenames_[4].c_str(), filenames_[5].c_str(), fmode);
+	    filenames_[5].c_str(), filenames_[6].c_str(), fmode);
 
 	if (fmode == FMODE_Create) {
 		for (auto const& fname : filenames_) {
@@ -99,6 +106,9 @@ errorT CodecCBH::open(const char* filename, fileModeT fmode) {
 		if (auto err = annotator_decoder->open())
 			return err;
 
+		if (auto err = source_decoder->open())
+			return err;
+
 		if (auto err = game_decoder->open())
 			return err;
 
@@ -109,12 +119,14 @@ errorT CodecCBH::open(const char* filename, fileModeT fmode) {
 	auto err_pl = player_decoder->decode_header();
 	auto err_to = tournament_decoder->decode_header();
 	auto err_ar = annotator_decoder->decode_header();
+	auto err_so = source_decoder->decode_header();
 	auto err_gm = game_decoder->decode_header();
 
 	return err_idx  ? err_idx
 	       : err_pl ? err_pl
 	       : err_to ? err_to
 	       : err_ar ? err_ar
+	       : err_so ? err_so
 	                : err_gm;
 }
 
@@ -177,6 +189,8 @@ errorT CodecCBH::parseNext(Game& game) {
 	    game, std::vector<uint32_t>{tournament});
 	errorT err_annotator = annotator_decoder->decode_record(
 	    game, std::vector<uint32_t>{annotator});
+	errorT err_source = source_decoder->decode_record(
+	    game, std::vector<uint32_t>{source});
 	errorT err_game = game_decoder->decode_record(
 	    game, std::vector<uint32_t>{game_offset, annotation_offset});
 
@@ -185,6 +199,7 @@ errorT CodecCBH::parseNext(Game& game) {
 	return err_player       ? err_player
 	       : err_tournament ? err_tournament
 	       : err_annotator  ? err_annotator
+	       : err_source     ? err_source
 	                        : err_game;
 }
 
