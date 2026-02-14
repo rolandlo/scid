@@ -22,6 +22,37 @@
 constexpr int ANNOTATION_HEADER_SIZE = 26;
 constexpr int ANNOTATION_ENTRY_SIZE = 62;
 
+static std::string squares[64] = {
+    "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", // a-file
+	"b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8", // b-file
+	"c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", // c-file
+	"d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", // d-file
+	"e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8", // e-file
+	"f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", // f-file
+	"g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8", // g-file
+	"h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", // h-file
+};
+
+static inline std::string squareName(byte sq) {
+	if (1 < sq && sq < 65) {
+		return squares[sq - 1];
+	}
+	return "";
+}
+
+static inline std::string colorName(byte col) {
+	switch (col) {
+	case 2:
+		return "green";
+	case 3:
+		return "yellow";
+	case 4: 
+		[[fallthrough]];
+	default:
+		return "red";
+	}
+}
+
 CbhAnnotationDecoder::CbhAnnotationDecoder(const char* filename,
                                            fileModeT fmode)
     : CbhDecoder(filename, fmode) {}
@@ -31,6 +62,30 @@ errorT CbhAnnotationDecoder::decode_header() {
 		return err;
 
 	return OK;
+}
+
+void CbhAnnotationDecoder::decodeSquares(Game& game, const char* content,
+                                         int length) {
+	for (int i = 0; 2 * i < length; i++) {
+		std::string col = colorName(content[2 * i]);
+		std::string sq = squareName(content[2 * i + 1]);
+		std::string annotation = "[%draw full," + sq + "," + col + "]";
+		auto& str = game.accessMoveComment();
+		str = str + annotation;
+	}
+}
+
+void CbhAnnotationDecoder::decodeArrows(Game& game, const char* content,
+                                        int length) {
+	for (int i = 0; 3 * i < length; i++) {
+		std::string col = colorName(content[3 * i]);
+		std::string sqFrom = squareName(content[3 * i + 1]);
+		std::string sqTo = squareName(content[3 * i + 2]);
+		std::string annotation = "[%draw arrow," + sqFrom + "," + sqTo + "," +
+		                         col + "]";
+		auto& str = game.accessMoveComment();
+		str = str + annotation;
+	}
 }
 
 void CbhAnnotationDecoder::decodeSymbol(Game& game, const byte* content,
@@ -193,9 +248,46 @@ void CbhAnnotationDecoder::addAnnotations(Game& game, uint32_t move_number) {
 		case 0x02: // text after move
 		{
 			const char* text = content + 2;
-			game.SetMoveComment(text);
+			// Prepend comment
+			auto& str = game.accessMoveComment();
+			str = text + str;
 			break;
 		}
+		case 0x03: // symbol
+		{
+			decodeSymbol(game, reinterpret_cast<byte*>(content), size);
+			break;
+		}
+		case 0x04: // squares
+			decodeSquares(game, content, size);
+			break;
+		case 0x05: // arrows
+			decodeArrows(game, content, size);
+			break;
+		case 0x09: // training annotation
+			break;
+		case 0x10: // sound
+			break;
+		case 0x11: // picture
+			break;
+		case 0x13: // game quotation
+			break;
+		case 0x14: // pawn structure
+			break;
+		case 0x15: // piece path
+			break;
+		case 0x18: // critical position
+			break;
+		case 0x19: // correspondence move
+			break;
+		case 0x22: // medal
+			break;
+		case 0x23: // variation color
+			break;
+		case 0x24: // Time control
+			break;
+		case 0x61: // correspondence header
+			break;
 		case 0x82: // text before move
 		{
 			const char* text = content + 2;
@@ -204,20 +296,9 @@ void CbhAnnotationDecoder::addAnnotations(Game& game, uint32_t move_number) {
 			auto& str = game.accessMoveComment();
 			str = str + text;
 			game.MoveForward();
-		}
-		case 0x03: // symbol
-		{
-			decodeSymbol(game, reinterpret_cast<byte*>(content), size);
 			break;
 		}
-		case 0x04: // squares
-			printf("Ignore squares annotation\n");
-			break;
-		case 0x05: // arrows
-			printf("Ignore arrows annotation\n");
-			break;
-		default:
-			printf("Ignore annotation of type %d\n", type);
+		default: // unknown annotation type
 			break;
 		}
 
