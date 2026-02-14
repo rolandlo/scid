@@ -280,8 +280,13 @@ simpleMoveT PositionStack::doCapture(byte number, byte offs) {
 		return doMove(from, to, EMPTY);
 
 	Lookup& lookup = stack_.top();
-	squareT epSquare = from + (offs == +9 || offs == +7) ? 1 : -1;
-	pieceT capturedPiece = lookup.pos.GetPiece(to);
+	squareT epSquare = from + ((offs == +9 || offs == byte(-7)) ? 1 : -1);
+	pieceT capturedPiece = lookup.pos.GetPiece(epSquare);
+
+	if (capturedPiece == EMPTY) { // Chessbase can write corrupt games with empty e.p. squares
+		printf("Illegal move: No piece on en passant square\n");
+		return simpleMoveT::empty();
+	}
 
 	handleCapture(lookup.pieces, lookup.pieceCount, epSquare, capturedPiece);
 	return doMove(from, to, EMPTY);
