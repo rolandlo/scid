@@ -136,6 +136,7 @@ errorT CbhGameDecoder::decode_record(Game& game,
 errorT CbhGameDecoder::startDecoding(Game& game) {
 	char c[4];
 	stream_.sgetn(c, 4);
+	this->bytes_read_ = 4;
 
 	/*
 	 * There are a few games in cbh databases, which cannot be decoded like
@@ -152,10 +153,13 @@ errorT CbhGameDecoder::startDecoding(Game& game) {
 
 	this->lookup = this->is_chess960 ? MoveNumberLookup960 : MoveNumberLookup;
 
+	this->bytes_total_ = c[1] << 16 | c[2] << 8 | c[3];
+
 	if (start_pos) {
 		const int size = this->is_chess960 ? 36 : 28;
 		char pos[size];
 		stream_.sgetn(pos, size);
+		this->bytes_read_ += size;
 		position_.setup(reinterpret_cast<byte*>(pos), this->is_chess960);
 		Position position = position_.pos();
 		game.SetStartPos(position);
@@ -168,10 +172,12 @@ errorT CbhGameDecoder::startDecoding(Game& game) {
 uint32_t CbhGameDecoder::decodeMoves(Game& game, uint32_t move_number) {
 	simpleMoveT sm;
 
-	while (true) {
+	// We can't blindly assume that the game ends in a pop
+	while (bytes_read_ < bytes_total_) {
 		// Read byte from game stream and calculate its move code
 		char c[1];
 		stream_.sgetn(c, 1);
+		bytes_read_ += 1;
 		byte b = static_cast<byte>(c[0]);
 		byte move_code = this->translate_byte(b, move_number);
 
@@ -976,6 +982,7 @@ uint32_t CbhGameDecoder::decodeMove(simpleMoveT& sm, byte move_code,
 	case 0xeb: {
 		char c[2];
 		stream_.sgetn(c, 2);
+		bytes_read_ += 2;
 		byte b1 = static_cast<byte>(c[0]);
 		byte b2 = static_cast<byte>(c[1]);
 		uint32_t word = this->translate_byte(b1, move_number) << 8;

@@ -51,6 +51,8 @@ private:
 	decoder::PositionStack position_;
 	bool is_chess960;
 	const byte* lookup;
+	uint32_t bytes_read_;  // number of bytes read from the current game
+	uint32_t bytes_total_; // number of bytes in total for the game
 
 	errorT startDecoding(Game& game);
 

@@ -335,16 +335,8 @@ simpleMoveT PositionStack::doMove(byte from, byte to, byte promoted) {
 		pieces[number][promoted] = to;
 		pieceCount[to] = number;
 	}
-	/*
-	 * char san[8];
-	 * pos.MakeSANString(&sm, san, SAN_NO_CHECKTEST);
-	 * printf("%s ", san);
-	 */
-
-	if (!sm.isNullMove() && !pos.IsLegalMove(sm.from, sm.to, sm.promote)) {
-		printf("Illegal move\n");
-		return simpleMoveT::empty();
-	}
+	// We could check for legality here, but that would decrease the performance
+	// very considerably
 
 	pos.DoSimpleMove(sm);
 	return sm;
