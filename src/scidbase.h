@@ -83,6 +83,8 @@ struct scidBaseT {
 			codec = ICodecDatabase::MEMORY;
 		} else if (dbType == "SCID4") {
 			codec = ICodecDatabase::SCID4;
+		} else if (dbType == "CBH") {
+			codec = ICodecDatabase::CBH;
 		} else if (dbType != "SCID5") {
 			return ERROR_BadArg;
 		}

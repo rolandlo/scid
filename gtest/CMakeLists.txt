@@ -27,6 +27,7 @@ add_subdirectory(${CMAKE_BINARY_DIR}/googletest ${CMAKE_BINARY_DIR}/googletest/B
 # scid_sources
 set(SCID_BASE
   ../src/codec_scid4.cpp
+  ../src/codec_cbh.cpp
   ../src/scidbase.cpp
   ../src/sortcache.cpp
   ../src/stored.cpp
@@ -42,3 +43,4 @@ file(GLOB GTEST_SRC *.cpp)
 add_executable(scid_tests ${GTEST_SRC})
 target_compile_definitions(scid_tests PRIVATE -DSCID_TESTDIR=\"${CMAKE_CURRENT_LIST_DIR}/\")
 target_link_libraries(scid_tests PRIVATE scid_base gtest_main)
+target_link_libraries(scid_tests PRIVATE cbh gtest_main)

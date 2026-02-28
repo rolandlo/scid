@@ -42,6 +42,9 @@ endif()
 find_package(Threads)
 find_package(TCL)
 
+find_library(CBH NAMES libcbh)
+find_path(CBH_INCLUDE_PATH NAMES libcbh/cbh.h)
+
 # polyglot
 file(GLOB POLYGLOT_SRC src/polyglot/*.cpp)
 add_library(polyglot ${POLYGLOT_SRC})
@@ -57,6 +60,9 @@ endif()
 set_property(TARGET scid PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE True)
 target_include_directories(scid PRIVATE ${TCL_INCLUDE_PATH})
 target_link_libraries(scid PRIVATE polyglot ${CMAKE_THREAD_LIBS_INIT} ${TCL_LIBRARY})
+
+target_include_directories(scid PRIVATE ${CBH_INCLUDE_PATH}/libcbh)
+target_link_libraries(scid PRIVATE cbh ${CMAKE_THREAD_LIBS_INIT} ${TCL_LIBRARY})
 
 install(TARGETS scid DESTINATION scid)
 file(GLOB ECO_FILES *.eco)
